@@ -1,0 +1,6 @@
+streamlit
+duckdb
+plotly
+# Optional
+polars
+

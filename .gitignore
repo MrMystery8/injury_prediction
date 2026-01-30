@@ -1,0 +1,67 @@
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.ipynb_checkpoints/
+
+# Environments
+.venv/
+venv/
+ENV/
+
+# Local secrets
+.env
+.env.*
+*.pem
+*.key
+*kaggle.json
+
+# Data & generated artifacts (do not commit)
+data/**
+!data/.gitkeep
+!data/README.md
+!data/raw/.gitkeep
+!data/raw/README.md
+!data/interim/.gitkeep
+!data/processed/.gitkeep
+!data/cache/.gitkeep
+
+reports/**
+!reports/.gitkeep
+!reports/README.md
+!reports/manifest/.gitkeep
+!reports/samples/.gitkeep
+!reports/figures/.gitkeep
+!reports/html/.gitkeep
+
+# Common generated formats
+*.parquet
+*.feather
+*.pkl
+*.joblib
+*.zip
+
+# Model outputs
+models/**
+!models/.gitkeep
+model-studio/public/model_data.json
+
+# Node / React
+model-studio/node_modules/
+model-studio/dist/
+model-studio/.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
