@@ -6,6 +6,12 @@ This project builds a player-based model to predict time-loss injuries (≥7 day
 ## Setup
 
 1. **Environment**:
+   Recommended: use a virtualenv (parquet support requires `pyarrow`).
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate
+   ```
+
    ```bash
    pip install -r requirements.txt
    ```
@@ -25,12 +31,12 @@ This project builds a player-based model to predict time-loss injuries (≥7 day
    Alternatively, if you have the Kaggle API set up (`~/.kaggle/kaggle.json`), the scripts can download them automatically (implementation pending).
 
 3. **Running**:
-   - Dataset EDA (raw): `python3 run_eda.py --data-root data/raw --out reports`
-   - Build player-week panel: `python3 make_panel.py` (writes `data/processed/panel.parquet`)
-   - Verify panel (leakage / label checks): `python3 verify_panel.py --panel data/processed/panel.parquet`
-   - Audit evaluation protocol (manifest + negative control): `python3 audit_eval.py --panel data/processed/panel.parquet` (also writes `reports/manifest/audit_results.json`)
-   - Train model: `python3 train_model.py --panel data/processed/panel.parquet`
-   - Quick eval export for Model Studio: `python3 quick_eval.py --panel data/processed/panel.parquet --print-manifest` (also writes eval artifacts to `reports/manifest/` + `reports/figures/`)
+   - Dataset EDA (raw): `python run_eda.py --data-root data/raw --out reports`
+   - Build player-week panel: `python make_panel.py` (writes `data/processed/panel.parquet`)
+   - Verify panel (leakage / label checks): `python verify_panel.py --panel data/processed/panel.parquet`
+   - Audit evaluation protocol (manifest + negative control): `python audit_eval.py --panel data/processed/panel.parquet` (also writes `reports/manifest/audit_results.json`)
+   - Train model: `python train_model.py --panel data/processed/panel.parquet`
+   - Quick eval export for Model Studio: `python quick_eval.py --panel data/processed/panel.parquet --print-manifest` (also writes eval artifacts to `reports/manifest/` + `reports/figures/`)
 
 ## Observability (Inspectable Pipeline Artifacts)
 All stage-wise outputs go under:
@@ -58,12 +64,12 @@ Run locally:
 - GitHub upload checklist (what not to commit, how to reproduce): `docs/GITHUB_UPLOAD_CHECKLIST.md`
 
 Runbook:
-1. Raw schema + file discovery: `python3 inspect_raw.py`
-2. Build canonical panel (+ interim parquet tables): `python3 make_panel.py` (also writes `reports/manifest/panel_build_manifest.json`)
-3. Panel integrity: `python3 verify_panel.py --panel data/processed/panel.parquet` and `python3 audit_eval.py --panel data/processed/panel.parquet`
-4. Export inspectable artifacts: `python3 inspect_panel.py && python3 inspect_joins.py && python3 feature_report.py`
-5. Export model eval artifacts for dashboards: `python3 quick_eval.py --panel data/processed/panel.parquet --print-manifest`
-6. Player lineage trace (repeat for a few IDs): `python3 trace_player.py --player-id <ID>`
+1. Raw schema + file discovery: `python inspect_raw.py`
+2. Build canonical panel (+ interim parquet tables): `python make_panel.py` (also writes `reports/manifest/panel_build_manifest.json`)
+3. Panel integrity: `python verify_panel.py --panel data/processed/panel.parquet` and `python audit_eval.py --panel data/processed/panel.parquet`
+4. Export inspectable artifacts: `python inspect_panel.py && python inspect_joins.py && python feature_report.py`
+5. Export model eval artifacts for dashboards: `python quick_eval.py --panel data/processed/panel.parquet --print-manifest`
+6. Player lineage trace (repeat for a few IDs): `python trace_player.py --player-id <ID>`
 
 ## Structure
 - `data/`: Raw and processed data.
