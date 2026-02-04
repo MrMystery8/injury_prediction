@@ -13,6 +13,8 @@ from sklearn.model_selection import train_test_split
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s', datefmt='%H:%M:%S')
 logger = logging.getLogger(__name__)
 
+from src.constrained_model import BASE_FEATURES
+
 def load_panel(path):
     logger.info(f"Loading Panel from {path}...")
     df = pd.read_parquet(path)
@@ -101,24 +103,8 @@ def main():
     else:
         pos_dummies = []
         
-    candidates = [
-        # Workload
-        'minutes_last_1w', 'minutes_last_2w', 'minutes_last_4w', 'minutes_last_8w', 'acwr',
-        # Congestion
-        'matches_last_3d', 'matches_last_7d', 'matches_last_14d', 'matches_last_28d',
-        'minutes_last_10d', 'max_minutes_14d',
-        # Travel / Discipline
-        'away_matches_last_28d', 'away_minutes_last_28d', 'away_match_share_28d',
-        'yellow_cards_last_28d', 'red_cards_last_56d',
-        # Context
-        'days_since_transfer', 'log_market_value', 'market_value_trend',
-        # Injury history
-        'injuries_last_30d', 'injuries_last_180d', 'injuries_last_365d',
-        'days_out_last_30d', 'days_out_last_180d', 'days_out_last_365d',
-        'days_since_last_injury_start', 'days_since_last_injury_end', 'last_injury_days_out',
-        # Demo
-        'age', 'height'
-    ]
+    # Constrained feature set (assignment): age, position, minutes played, rest, injury history
+    candidates = list(BASE_FEATURES)
     
     features = [c for c in candidates if c in modeling_df.columns] + pos_dummies
     logger.info(f"Features ({len(features)}): {features}")

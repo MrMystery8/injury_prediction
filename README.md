@@ -61,6 +61,8 @@ Run locally:
 
 ## Detailed documentation
 - Full table schemas, join logic, feature provenance, model evaluation, and a Griezmann lineage walkthrough: `docs/PIPELINE_DATA_MODEL_GUIDE.md`
+- Constrained model write-up (age/position/minutes/rest/injury-history only): `docs/PIPELINE_CONSTRAINED_MODEL_GUIDE.md`
+- Streamlit dashboard walkthrough (including player scoring): `docs/STREAMLIT_DASHBOARD_GUIDE.md`
 - GitHub upload checklist (what not to commit, how to reproduce): `docs/GITHUB_UPLOAD_CHECKLIST.md`
 
 Runbook:

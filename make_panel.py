@@ -7,7 +7,8 @@ import numpy as np
 
 from src.data.loader import load_backbone, load_labels
 from src.data.processing import (
-    filter_top5, clean_injuries, build_weekly_panel,
+    filter_top5, clean_injuries,
+    build_weekly_panel_top5_club_cohort,
     add_workload_features, add_labels_and_exclusions,
     add_congestion_features, add_context_features, add_injury_history_features
 )
@@ -102,12 +103,16 @@ def main():
         apps_top5.to_parquet(interim_dir / "backbone_appearances_top5.parquet", index=False)
     except Exception as e:
         logger.warning(f"Failed writing interim Top-5 tables: {e}")
-    
-    top5_player_ids = set(apps_top5['player_id'].unique())
-    logger.info(f"Top-5 Unique Players: {len(top5_player_ids)}")
-    
-    # 3. Load Labels & Clean
-    logger.info("Step 3: Loading Labels...")
+
+    # 3. Build Panel Skeleton (Top-5 club cohort; league calendar weeks)
+    logger.info("Step 3: Building Weekly Panel...")
+    panel = build_weekly_panel_top5_club_cohort(games_top5, bb_dfs["games"], bb_dfs["appearances"])
+    top5_player_ids = set(panel["player_id"].unique())
+    logger.info(f"Top-5 Club Cohort Players: {len(top5_player_ids)}")
+    logger.info(f"Panel Skeleton: {len(panel)} rows")
+
+    # 4. Load Labels & Clean
+    logger.info("Step 4: Loading Labels...")
     lbl_dfs = load_labels(labels_dir)
     injuries = clean_injuries(lbl_dfs['injuries'])
 
@@ -124,8 +129,8 @@ def main():
     except Exception as e:
         logger.warning(f"Failed writing interim label tables: {e}")
     
-    # 4. GATE: ID Overlap
-    logger.info("Step 4: Running ID Overlap Gate...")
+    # 5. GATE: ID Overlap
+    logger.info("Step 5: Running ID Overlap Gate...")
     label_player_ids = set(injuries['player_id'].unique())
     intersect = top5_player_ids.intersection(label_player_ids)
     overlap_pct = len(intersect) / len(top5_player_ids) * 100
@@ -162,11 +167,6 @@ def main():
         )
         exit(1)
         
-    # 5. Build Panel
-    logger.info("Step 5: Building Weekly Panel...")
-    panel = build_weekly_panel(games_top5, apps_top5)
-    logger.info(f"Panel Skeleton: {len(panel)} rows")
-    
     # 6. Features
     # Use ALL appearances for workload (physiologically correct to include Cup matches)
     logger.info("Step 6a: Adding Workload Features (All Competitions)...")

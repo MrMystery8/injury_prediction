@@ -7,6 +7,116 @@ from typing import Dict, List, Tuple
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def build_weekly_panel_top5_club_cohort(
+    games_top5_leagues: pd.DataFrame,
+    games_all: pd.DataFrame,
+    appearances_all: pd.DataFrame,
+) -> pd.DataFrame:
+    """
+    Builds a weekly skeleton panel for players who belong to a Top-5 league club, while allowing
+    *all competitions* to contribute to workload/rest features downstream.
+
+    Key idea:
+    - Define the cohort by mapping a player's club (club_id or current_club_id) to a Top-5 league
+      using the Top-5 league games table.
+    - For each (player_id, season), assign a *primary* Top-5 league competition_id based on minutes
+      played while affiliated with Top-5 clubs in that season.
+    - Create all Mondays between the min/max week_start of that league season (league calendar),
+      and cross-join to the player-season cohort.
+
+    Output columns: player_id, week_start, competition_id (Top-5 league), season.
+    """
+    if games_top5_leagues is None or games_top5_leagues.empty:
+        return pd.DataFrame()
+
+    gt = games_top5_leagues.copy()
+    ga = games_all.copy()
+
+    for g in (gt, ga):
+        if "game_date" in g.columns and not pd.api.types.is_datetime64_any_dtype(g["game_date"]):
+            g["game_date"] = pd.to_datetime(g["game_date"], errors="coerce")
+
+    if "game_date" not in gt.columns or gt["game_date"].isna().all():
+        raise ValueError("games_top5_leagues missing usable game_date for week_start derivation.")
+
+    # League calendar (all Mondays in each league season)
+    gt["week_start"] = gt["game_date"] - pd.to_timedelta(gt["game_date"].dt.weekday, unit="D")
+    bounds = (
+        gt.dropna(subset=["competition_id", "season", "week_start"])
+        .groupby(["competition_id", "season"], as_index=False)["week_start"]
+        .agg(min_week="min", max_week="max")
+    )
+    bounds["week_start"] = bounds.apply(
+        lambda r: pd.date_range(r["min_week"], r["max_week"], freq="W-MON"),
+        axis=1,
+    )
+    league_weeks = bounds[["competition_id", "season", "week_start"]].explode("week_start", ignore_index=True)
+
+    # Map (season, club_id) -> league_competition_id using Top-5 league fixtures
+    club_maps = []
+    for side in ("home_club_id", "away_club_id"):
+        if side not in gt.columns:
+            continue
+        tmp = gt[["season", "competition_id", side]].dropna().copy()
+        tmp = tmp.rename(columns={side: "club_id", "competition_id": "league_competition_id"})
+        club_maps.append(tmp)
+
+    if not club_maps:
+        raise ValueError("games_top5_leagues missing club id columns to build Top-5 club mapping.")
+
+    club_league = pd.concat(club_maps, ignore_index=True).drop_duplicates(subset=["season", "club_id"])
+
+    # Join appearances to seasons, then assign each appearance row a Top-5 league based on club affiliation.
+    a = appearances_all[["player_id", "game_id", "player_club_id", "player_current_club_id", "minutes_played"]].copy()
+    if "season" not in ga.columns:
+        raise ValueError("games_all missing season; cannot build player-season cohort.")
+    a = a.merge(ga[["game_id", "season"]], on="game_id", how="left")
+    a = a.dropna(subset=["player_id", "season"])
+    a["minutes_played"] = pd.to_numeric(a["minutes_played"], errors="coerce").fillna(0.0)
+
+    # Primary club_id mapping (prefer match club; fall back to current club for internationals)
+    m_match = a.merge(
+        club_league,
+        left_on=["season", "player_club_id"],
+        right_on=["season", "club_id"],
+        how="left",
+    )[["player_id", "season", "league_competition_id", "minutes_played"]]
+    m_curr = a.merge(
+        club_league,
+        left_on=["season", "player_current_club_id"],
+        right_on=["season", "club_id"],
+        how="left",
+    )[["player_id", "season", "league_competition_id", "minutes_played"]]
+
+    match_ok = m_match["league_competition_id"].notna()
+    m = m_match.copy()
+    m.loc[~match_ok, "league_competition_id"] = m_curr.loc[~match_ok, "league_competition_id"]
+    m = m.dropna(subset=["league_competition_id"]).copy()
+
+    # Choose primary Top-5 league per (player_id, season) by total minutes
+    ps = (
+        m.groupby(["player_id", "season", "league_competition_id"], as_index=False)["minutes_played"]
+        .sum()
+        .sort_values(["player_id", "season", "minutes_played"], ascending=[True, True, False])
+        .drop_duplicates(subset=["player_id", "season"])
+    )
+
+    panel = ps.merge(
+        league_weeks,
+        left_on=["season", "league_competition_id"],
+        right_on=["season", "competition_id"],
+        how="inner",
+    )
+    panel = panel.drop(columns=["competition_id"])
+    panel = panel.rename(columns={"league_competition_id": "competition_id"})
+    panel = panel.drop(columns=["minutes_played"])
+    panel = panel[["player_id", "week_start", "competition_id", "season"]].copy()
+
+    panel["player_id"] = pd.to_numeric(panel["player_id"], errors="coerce").astype("Int64")
+    panel = panel.dropna(subset=["player_id"])
+    panel["player_id"] = panel["player_id"].astype(int)
+    return panel
+
 def filter_top5(games: pd.DataFrame, appearances: pd.DataFrame, competitions: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Filters games and appearances to Top-5 leagues (first tier only).
@@ -342,7 +452,41 @@ def add_workload_features(panel: pd.DataFrame, appearances: pd.DataFrame, games:
     # ACWR
     eps = 1
     result['acwr'] = result['minutes_last_1w'] / (result['minutes_last_4w'] / 4 + eps) # smoothed
-    
+
+    # Rest proxy: days since last played (strictly prior, no leakage)
+    # We already have a dense daily minutes matrix per player. Convert it into "last played date" and
+    # compute days since last played at each panel week_start (Mondays).
+    try:
+        date_ord = matrix.index.to_numpy(dtype="datetime64[D]").astype("int64")
+        mins = matrix.to_numpy()
+        played = mins > 0
+
+        # last played date *strictly prior* to each day: take cummax then shift by 1 day.
+        sentinel = np.int64(-10**18)
+        last_played = np.maximum.accumulate(np.where(played, date_ord[:, None], sentinel), axis=0)
+        last_played_prior = np.vstack([np.full((1, last_played.shape[1]), sentinel, dtype=np.int64), last_played[:-1]])
+
+        days_since = (date_ord[:, None] - last_played_prior).astype("int64")
+        days_since[last_played_prior == sentinel] = 9999
+        days_since = np.clip(days_since, 0, 9999).astype("int32")
+
+        monday_mask = matrix.index.weekday == 0
+        rest_df = pd.DataFrame(
+            days_since[monday_mask],
+            index=matrix.index[monday_mask],
+            columns=matrix.columns,
+        )
+        rest_flat = rest_df.stack().reset_index()
+        rest_flat.columns = ["week_start", "player_id", "days_since_last_played"]
+        rest_flat["player_id"] = rest_flat["player_id"].astype(int)
+        rest_flat["days_since_last_played"] = rest_flat["days_since_last_played"].astype(int)
+
+        result = result.merge(rest_flat, on=["player_id", "week_start"], how="left")
+        result["days_since_last_played"] = result["days_since_last_played"].fillna(9999).astype(int)
+    except Exception as e:
+        logger.warning(f"Failed computing days_since_last_played (rest proxy): {e}")
+        result["days_since_last_played"] = 9999
+
     return result
 
 def add_labels_and_exclusions(panel: pd.DataFrame, injuries: pd.DataFrame, profiles: pd.DataFrame = None) -> pd.DataFrame:
