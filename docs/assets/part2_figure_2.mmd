@@ -1,0 +1,13 @@
+flowchart TD
+    A["Raw Data Files<br/>(Matches, Injuries, Profiles)"] --> B["Data Loading<br/>& Parsing"]
+    B --> C["Data Cleaning<br/>& Standardisation<br/>(Dates, Weeks, IDs)"]
+    C --> D["Cohort Filtering<br/>(Top-5 Clubs)"]
+    D --> E["Panel Construction<br/>(Player × Week Grid)"]
+    E --> F["Feature Engineering<br/>(Age, Position, Workload, Rest, History)"]
+    F --> G["Labeling & Eligibility<br/>(30-day Target, Ineligible, Censoring)"]
+    G --> H{"Quality Gates<br/>Passed?"}
+    H -->|No| I["Halt & Diagnostics"]
+    H -->|Yes| J["Time-based Split"]
+    J --> K["Model Training<br/>(Candidate Models)"]
+    K --> L["Evaluation & Reporting"]
+    L --> M["Dashboard / Outputs"]
