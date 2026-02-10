@@ -1,0 +1,41 @@
+flowchart LR
+  %% Figure 3: Component architecture (detail view)
+
+  subgraph DL["Data Layer"]
+    RAW["Raw Data Files<br/>(Matches, Injuries, Profiles)"]
+    STAGE["Staging / Interim Tables<br/>(Typed + Standardised)"]
+    PANEL["Processed Panel<br/>(Player × Week)"]
+  end
+
+  subgraph PL["Processing Layer"]
+    LOAD["Data Loading<br/>& Parsing"]
+    FILTER["Cohort Filtering<br/>(Top-5 Clubs)"]
+    BUILD["Panel Builder<br/>(Week Grid)"]
+    FEAT["Feature Engineering<br/>(Workload, Rest, History, Demographics)"]
+    LABEL["Label + Exclusion<br/>(30-day Target, Injured-at-t0, Censoring)"]
+    GATE{"Quality Gate\n(Overlap + Sanity Checks)"}
+    DIAG["Halt + Diagnostics"]
+  end
+
+  subgraph ML["Modelling Layer"]
+    SPLIT["Time-based Split"]
+    TRAIN["Model Training<br/>(Candidate Models)"]
+    CAL["Calibration<br/>(Optional)"]
+    EVAL["Evaluation"]
+  end
+
+  subgraph AL["Application Layer"]
+    REPORT["Reporting"]
+    ARTE["Artefacts<br/>(Model, Config, Metrics)"]
+    DASH["Dashboard / UI"]
+  end
+
+  RAW --> LOAD --> STAGE
+  STAGE --> FILTER --> BUILD --> PANEL
+  PANEL --> FEAT --> LABEL --> GATE
+
+  GATE -->|"Fail"| DIAG
+  GATE -->|"Pass"| SPLIT --> TRAIN --> CAL --> EVAL --> REPORT
+
+  REPORT --> ARTE
+  REPORT --> DASH
