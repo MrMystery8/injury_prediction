@@ -1,0 +1,29 @@
+flowchart TB
+    subgraph DataLayer["Data Layer"]
+        RAW["Raw Data Storage"]
+        INTERIM["Interim Tables"]
+        PANEL["Processed Panel"]
+        RAW --> INTERIM --> PANEL
+    end
+
+    subgraph ProcessingLayer["Processing Layer"]
+        FILTER["Cohort Filtering"]
+        BUILD["Panel Construction"]
+        FEATS["Feature Engineering"]
+        LABELS["Label Generation"]
+        FILTER --> BUILD --> FEATS --> LABELS
+    end
+
+    subgraph ModellingLayer["Modelling Layer"]
+        TRAIN["Model Training (Candidates)"]
+        CALIB["Calibration (Optional)"]
+        EVAL["Performance Evaluation"]
+        TRAIN --> CALIB --> EVAL
+    end
+
+    subgraph ApplicationLayer["Application Layer"]
+        REPORT["Reporting & Artefacts"]
+        UI["Dashboard / UI"]
+    end
+
+    DataLayer --> ProcessingLayer --> ModellingLayer --> ApplicationLayer

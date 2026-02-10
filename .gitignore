@@ -58,6 +58,10 @@ models/**
 !models/.gitkeep
 model-studio/public/model_data.json
 
+# Local scratch / exported artefacts (do not commit)
+tmp/
+output/doc/fai_group_assignment/
+
 # Node / React
 model-studio/node_modules/
 model-studio/dist/

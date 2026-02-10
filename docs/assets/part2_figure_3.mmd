@@ -1,0 +1,27 @@
+flowchart LR
+    subgraph Sources["Data Sources"]
+        APP["Appearances / Minutes (All Competitions)"]
+        INJ["Injury Records"]
+        PROF["Player Profiles"]
+    end
+
+    subgraph Temporal["Temporal Processing"]
+        ROLL["Rolling Window<br/>Aggregation"]
+        PRIOR["Strictly Prior<br/>Filtering"]
+        WEEK["Week Alignment<br/>(Monday start)"]
+    end
+
+    subgraph Features["Feature Groups"]
+        W["Workload<br/>rolling minutes"]
+        R["Rest<br/>days_since_last_played"]
+        H["History<br/>trailing window + recency"]
+        D["Demographics<br/>age, position"]
+    end
+
+    APP --> ROLL --> PRIOR --> W
+    APP --> PRIOR --> R
+    INJ --> PRIOR --> H
+    PROF --> D
+    WEEK --> PRIOR
+
+    W & R & H & D --> X["Feature Matrix"]

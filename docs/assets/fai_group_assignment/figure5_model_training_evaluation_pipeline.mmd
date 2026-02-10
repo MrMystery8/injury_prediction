@@ -1,0 +1,19 @@
+flowchart TD
+  %% Figure 5: Model training + evaluation pipeline
+
+  PANEL["Processed Panel"] --> MASK["Apply Eligibility Mask<br/>(Exclude ineligible, censored, inactive)"]
+  MASK --> SPLIT["Chronological Split"]
+
+  SPLIT --> TRAIN["Training Set<br/>(Historical Seasons)"]
+  SPLIT --> VALID["Validation Set<br/>(Intermediate Period)"]
+  SPLIT --> TEST["Test Set<br/>(Recent Seasons)"]
+
+  TRAIN --> WEIGHTS["Class Weight<br/>Calculation"]
+  WEIGHTS --> FIT["Fit Gradient<br/>Boosting Model"]
+
+  FIT --> VAL_PRED["Predict on<br/>Validation Set"]
+  VAL_PRED --> ISO["Fit Isotonic<br/>Calibration"]
+
+  ISO --> TEST_PRED["Predict on<br/>Test Set"]
+  TEST_PRED --> METRICS["Compute Metrics<br/>(PR-AUC, Brier, Precision@K)"]
+  METRICS --> REPORT["Performance<br/>Report"]
